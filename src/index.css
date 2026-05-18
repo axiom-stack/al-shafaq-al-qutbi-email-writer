@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+:root {
+  font-family: 'Montserrat', 'Cairo', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #454651;
+  background:
+    radial-gradient(circle at top left, rgba(30, 61, 168, 0.08), transparent 34%),
+    radial-gradient(circle at top right, rgba(244, 121, 32, 0.1), transparent 28%),
+    #fbf8ff;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  color: #454651;
+  background:
+    radial-gradient(circle at top left, rgba(30, 61, 168, 0.08), transparent 34%),
+    radial-gradient(circle at top right, rgba(244, 121, 32, 0.1), transparent 28%),
+    #fbf8ff;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+h3 {
+  color: #1a2f7a;
+  letter-spacing: -0.03em;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2rem, 3vw, 3.35rem);
+  line-height: 1;
+}
+
+h2 {
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+}
+
+h3 {
+  font-size: 1.05rem;
+}
+
+p {
+  margin: 0;
+}
+
+#root {
+  min-height: 100vh;
+}
