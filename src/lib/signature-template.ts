@@ -9,6 +9,16 @@ const safeAddressLine = (value: string) => escapeHtml(value).replace(/\r?\n/g, '
 const addressFull = (params: BuilderFormValues) =>
   `${escapeHtml(params.addressLine1)} ${escapeHtml(params.addressLine2)}`.trim()
 
+const fiataMembershipHtml = (alignment: 'left' | 'center' = 'left') => `
+  <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
+    <tr>
+      <td${alignment === 'center' ? ' align="center"' : ''} style="font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:1.35;color:#1a2f7a;padding:5px 0 0 0;mso-line-height-rule:exactly;">
+        <span style="font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Member of FIATA</span><br />
+        <span style="font-size:7px;color:#757682;">International Federation of Freight Forwarders Associations</span>
+      </td>
+    </tr>
+  </table>`
+
 export function buildMessagePreviewHtml(body: string): string {
   const blocks = body
     .trim()
@@ -48,6 +58,7 @@ function buildHorizontalSignatureHtml(params: BuilderFormValues): string {
   <tr>
     <td style="padding:0 20px 0 0;vertical-align:middle;">
       <img src="${escapeHtml(params.logoUrl)}" alt="${escapeHtml(params.logoAlt)}" width="140" height="42" style="display:block;border:0;outline:none;text-decoration:none;width:140px;height:auto;max-width:140px;" />
+      ${fiataMembershipHtml()}
     </td>
     <td style="width:3px;padding:0;vertical-align:middle;background-color:#f47920;font-size:0;line-height:0;">&nbsp;</td>
     <td style="padding:0 0 0 20px;vertical-align:middle;">
@@ -128,6 +139,7 @@ function buildCardSignatureHtml(params: BuilderFormValues): string {
               <tr>
                 <td align="center" style="padding:0 0 12px 0;">
                   <img src="${escapeHtml(params.logoUrl)}" alt="${escapeHtml(params.logoAlt)}" width="150" height="45" style="display:block;border:0;outline:none;text-decoration:none;width:150px;height:auto;max-width:150px;margin:0 auto;" />
+                  ${fiataMembershipHtml('center')}
                 </td>
               </tr>
               <tr>
@@ -220,6 +232,7 @@ function buildExecutiveSignatureHtml(params: BuilderFormValues): string {
                     <tr>
                       <td style="padding:6px 8px;">
                         <img src="${escapeHtml(params.logoUrl)}" alt="${escapeHtml(params.logoAlt)}" width="120" height="36" style="display:block;border:0;outline:none;text-decoration:none;width:120px;height:auto;max-width:120px;" />
+                        ${fiataMembershipHtml()}
                       </td>
                     </tr>
                   </table>
