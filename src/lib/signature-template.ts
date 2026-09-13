@@ -18,7 +18,7 @@ const fiataMembershipHtml = (width: number, centered = false) => `
     </tr>
     <tr>
       <td align="center" style="color:#5c6374;font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:600;line-height:1.12;padding:3px 0 0 0;mso-line-height-rule:exactly;">
-        International Federation of Freight<br />Forwarders Associations
+        International Federation of<br />Freight Forwarders Associations
       </td>
     </tr>
   </table>`
