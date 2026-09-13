@@ -13,7 +13,11 @@ const fiataMembershipHtml = (width: number, centered = false) => `
   <table${centered ? ' align="center"' : ''} cellpadding="0" cellspacing="0" border="0" width="${width}" role="presentation" style="border-collapse:collapse;width:${width}px;">
     <tr>
       <td align="center" style="font-family:Arial,Helvetica,sans-serif;padding:5px 0 0 0;mso-line-height-rule:exactly;">
-        <span style="border-bottom:3px solid #f47920;color:#1a2f7a;font-size:11px;font-weight:700;letter-spacing:0.07em;line-height:1.2;padding:0 3px 2px 3px;text-transform:uppercase;">FIATA Member</span>
+        <table align="center" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
+          <tr>
+            <td style="border-bottom:3px solid #f47920;color:#1a2f7a;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.07em;line-height:1.2;padding:0 3px 2px 3px;text-transform:uppercase;mso-line-height-rule:exactly;">FIATA Member</td>
+          </tr>
+        </table>
       </td>
     </tr>
     <tr>
