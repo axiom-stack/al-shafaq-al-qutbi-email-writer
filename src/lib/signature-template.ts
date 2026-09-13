@@ -17,8 +17,8 @@ const fiataMembershipHtml = (width: number, centered = false) => `
       </td>
     </tr>
     <tr>
-      <td align="center" style="color:#5c6374;font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:600;line-height:1.12;padding:3px 0 0 0;mso-line-height-rule:exactly;">
-        International Federation of<br />Freight Forwarders Associations
+      <td align="center" style="color:#5c6374;font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:600;line-height:1.2;padding:5px 0 0 0;mso-line-height-rule:exactly;">
+        International Federation of Freight Forwarders Associations
       </td>
     </tr>
   </table>`
@@ -60,9 +60,9 @@ function buildHorizontalSignatureHtml(params: BuilderFormValues): string {
 
   return `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-family:Arial,Helvetica,sans-serif;max-width:520px;">
   <tr>
-    <td style="padding:0 20px 0 0;vertical-align:middle;">
-      <img src="${escapeHtml(params.logoUrl)}" alt="${escapeHtml(params.logoAlt)}" width="140" height="42" style="display:block;border:0;outline:none;text-decoration:none;width:140px;height:auto;max-width:140px;" />
-      ${fiataMembershipHtml(140)}
+    <td width="170" align="center" style="padding:0 20px 0 0;vertical-align:middle;">
+      <img src="${escapeHtml(params.logoUrl)}" alt="${escapeHtml(params.logoAlt)}" width="140" height="42" style="display:block;border:0;outline:none;text-decoration:none;width:140px;height:auto;max-width:140px;margin:0 auto;" />
+      ${fiataMembershipHtml(170, true)}
     </td>
     <td style="width:3px;padding:0;vertical-align:middle;background-color:#f47920;font-size:0;line-height:0;">&nbsp;</td>
     <td style="padding:0 0 0 20px;vertical-align:middle;">
