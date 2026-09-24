@@ -440,7 +440,7 @@ export function PartnersSection({ partners, onPartnersChange, onNotify }: Partne
               type="text"
               value={newName}
               onChange={(event) => setNewName(event.target.value)}
-              placeholder="e.g. FIATA"
+              placeholder="e.g. Maersk"
               disabled={uploading}
             />
           </label>
