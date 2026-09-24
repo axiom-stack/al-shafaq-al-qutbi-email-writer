@@ -1,5 +1,6 @@
 import type { BuilderFormValues, TemplateId } from './defaults'
 import { escapeHtml } from './escape-html'
+import { type Partner, isHttpsUrl } from './partners'
 
 const messageParagraphStyle =
   'font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1b1b20;margin:0 0 12px 0;'
@@ -27,6 +28,72 @@ const fiataMembershipHtml = (width: number, centered = false) => `
     </tr>
   </table>`
 
+const PARTNER_LOGO_WIDTH = 120
+const PARTNER_LOGO_HEIGHT = 40
+
+const CLOUDINARY_UPLOAD_PATTERN =
+  /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(v\d+\/.+?)(\.[a-z0-9]+)?$/i
+
+/**
+ * Cloudinary uploads are delivered pre-padded to an exact 2x box as PNG, which
+ * gives object-fit: contain behaviour in every client and turns SVGs (unsupported
+ * by Gmail/Outlook) into PNGs. Other URLs are used as-is.
+ */
+const partnerLogoSource = (imageUrl: string) => {
+  const match = CLOUDINARY_UPLOAD_PATTERN.exec(imageUrl)
+  if (!match) {
+    return { src: imageUrl, exactSize: false }
+  }
+
+  const transform = `c_pad,w_${PARTNER_LOGO_WIDTH * 2},h_${PARTNER_LOGO_HEIGHT * 2},b_transparent`
+  return { src: `${match[1]}${transform}/${match[2]}.png`, exactSize: true }
+}
+
+const partnerLogoHtml = (partner: Partner, centered: boolean) => {
+  const { src, exactSize } = partnerLogoSource(partner.imageUrl)
+  const sizeAttributes = exactSize
+    ? `width="${PARTNER_LOGO_WIDTH}" height="${PARTNER_LOGO_HEIGHT}"`
+    : `height="${PARTNER_LOGO_HEIGHT}"`
+  const sizeStyle = exactSize
+    ? `width:${PARTNER_LOGO_WIDTH}px;height:${PARTNER_LOGO_HEIGHT}px;`
+    : `width:auto;height:${PARTNER_LOGO_HEIGHT}px;max-height:${PARTNER_LOGO_HEIGHT}px;`
+
+  return `<span style="display:inline-block;vertical-align:middle;padding:${centered ? '0 6px 8px 6px' : '0 12px 8px 0'};"><img src="${escapeHtml(src)}" alt="${escapeHtml(partner.name)}" title="${escapeHtml(partner.name)}" ${sizeAttributes} style="display:inline-block;vertical-align:middle;border:0;outline:none;text-decoration:none;${sizeStyle}max-width:${PARTNER_LOGO_WIDTH}px;" /></span>`
+}
+
+const partnersSectionHtml = (
+  partners: Partner[],
+  { centered = false, divider = true }: { centered?: boolean; divider?: boolean } = {},
+) => {
+  const visiblePartners = partners.filter(
+    (partner) => partner.enabled && partner.name.trim() !== '' && isHttpsUrl(partner.imageUrl),
+  )
+
+  if (visiblePartners.length === 0) {
+    return ''
+  }
+
+  const align = centered ? 'center' : 'left'
+
+  return `
+      <table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;">
+        <tr>
+          <td align="${align}" style="${divider ? 'border-top:1px solid #e8e4ef;' : ''}padding:12px 0 0 0;">
+            <table${centered ? ' align="center"' : ''} cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
+              <tr>
+                <td style="border-bottom:2px solid #f47920;color:#1a2f7a;font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:700;letter-spacing:0.12em;line-height:1.2;padding:0 0 3px 0;text-transform:uppercase;mso-line-height-rule:exactly;">Partners</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td align="${align}" style="text-align:${align};padding:10px 0 0 0;font-size:0;line-height:0;">
+            ${visiblePartners.map((partner) => partnerLogoHtml(partner, centered)).join('')}
+          </td>
+        </tr>
+      </table>`
+}
+
 export function buildMessagePreviewHtml(body: string): string {
   const blocks = body
     .trim()
@@ -46,7 +113,16 @@ export function buildMessagePreviewHtml(body: string): string {
     .join('')
 }
 
-function buildHorizontalSignatureHtml(params: BuilderFormValues): string {
+function buildHorizontalSignatureHtml(params: BuilderFormValues, partners: Partner[]): string {
+  const partnersHtml = partnersSectionHtml(partners)
+  const partnersRowHtml = partnersHtml
+    ? `
+  <tr>
+    <td colspan="3" style="padding:14px 0 0 0;">${partnersHtml}
+    </td>
+  </tr>`
+    : ''
+
   const phoneTwoHtml = params.showPhone2
     ? `
             <span style="color:#c5c5d3;">&nbsp;/&nbsp;</span>
@@ -113,11 +189,20 @@ function buildHorizontalSignatureHtml(params: BuilderFormValues): string {
         </tr>${addressHtml}
       </table>
     </td>
-  </tr>
+  </tr>${partnersRowHtml}
 </table>`
 }
 
-function buildCardSignatureHtml(params: BuilderFormValues): string {
+function buildCardSignatureHtml(params: BuilderFormValues, partners: Partner[]): string {
+  const partnersHtml = partnersSectionHtml(partners, { centered: true })
+  const partnersRowHtml = partnersHtml
+    ? `
+              <tr>
+                <td style="padding:14px 0 0 0;">${partnersHtml}
+                </td>
+              </tr>`
+    : ''
+
   const phoneTwoHtml = params.showPhone2
     ? `<span style="color:#c5c5d3;"> / </span><a href="tel:${escapeHtml(params.phone2Tel)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.phone2Display)}</a>`
     : ''
@@ -195,7 +280,7 @@ function buildCardSignatureHtml(params: BuilderFormValues): string {
                     </tr>${addressHtml}
                   </table>
                 </td>
-              </tr>
+              </tr>${partnersRowHtml}
             </table>
           </td>
         </tr>
@@ -205,7 +290,16 @@ function buildCardSignatureHtml(params: BuilderFormValues): string {
 </table>`
 }
 
-function buildExecutiveSignatureHtml(params: BuilderFormValues): string {
+function buildExecutiveSignatureHtml(params: BuilderFormValues, partners: Partner[]): string {
+  const partnersHtml = partnersSectionHtml(partners, { divider: false })
+  const partnersRowHtml = partnersHtml
+    ? `
+        <tr>
+          <td bgcolor="#ffffff" style="background-color:#ffffff;padding:0 20px 14px 20px;border:1px solid #e8e4ef;border-top:none;">${partnersHtml}
+          </td>
+        </tr>`
+    : ''
+
   const phoneTwoHtml = params.showPhone2
     ? `
                     <tr>
@@ -304,7 +398,7 @@ function buildExecutiveSignatureHtml(params: BuilderFormValues): string {
               </tr>
             </table>
           </td>
-        </tr>
+        </tr>${partnersRowHtml}
       </table>
     </td>
   </tr>
@@ -314,14 +408,15 @@ function buildExecutiveSignatureHtml(params: BuilderFormValues): string {
 export function buildSignatureHtml(
   templateId: TemplateId,
   params: BuilderFormValues,
+  partners: Partner[] = [],
 ): string {
   switch (templateId) {
     case 'card':
-      return buildCardSignatureHtml(params)
+      return buildCardSignatureHtml(params, partners)
     case 'executive':
-      return buildExecutiveSignatureHtml(params)
+      return buildExecutiveSignatureHtml(params, partners)
     case 'horizontal':
     default:
-      return buildHorizontalSignatureHtml(params)
+      return buildHorizontalSignatureHtml(params, partners)
   }
 }

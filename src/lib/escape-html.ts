@@ -3,7 +3,8 @@ const ESCAPE_LOOKUP: Record<string, string> = {
   '<': '&lt;',
   '>': '&gt;',
   '"': '&quot;',
+  "'": '&#39;',
 }
 
 export const escapeHtml = (value: string) =>
-  value.replace(/[&<>"]/g, (character) => ESCAPE_LOOKUP[character] ?? character)
+  value.replace(/[&<>"']/g, (character) => ESCAPE_LOOKUP[character] ?? character)

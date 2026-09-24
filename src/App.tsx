@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
+import { PartnersSection } from './components/PartnersSection'
 import {
   type BuilderFormValues,
   type TemplateId,
@@ -10,6 +11,7 @@ import {
   buildMessagePreviewHtml,
   buildSignatureHtml,
 } from './lib/signature-template'
+import { type Partner, loadPartners, savePartners } from './lib/partners'
 
 type ToastState = {
   tone: 'success' | 'error'
@@ -90,10 +92,11 @@ const copyToClipboard = async (html: string) => {
 function App() {
   const [formValues, setFormValues] = useState<BuilderFormValues>(DEFAULT_FORM_VALUES)
   const [toast, setToast] = useState<ToastState>(null)
+  const [partners, setPartners] = useState<Partner[]>(loadPartners)
 
   const signatureHtml = useMemo(
-    () => buildSignatureHtml(formValues.templateId, formValues),
-    [formValues],
+    () => buildSignatureHtml(formValues.templateId, formValues, partners),
+    [formValues, partners],
   )
   const messagePreviewHtml = useMemo(
     () => buildMessagePreviewHtml(formValues.emailBody),
@@ -114,6 +117,20 @@ function App() {
     value: BuilderFormValues[K],
   ) => {
     setFormValues((current) => ({ ...current, [key]: value }))
+  }
+
+  const notify = (tone: 'success' | 'error', message: string) => {
+    setToast({ tone, message })
+  }
+
+  const updatePartners = (next: Partner[]) => {
+    setPartners(next)
+    if (!savePartners(next)) {
+      notify(
+        'error',
+        'Partners could not be saved in this browser (storage full or blocked). Changes will be lost on refresh.',
+      )
+    }
   }
 
   const handleCopy = async () => {
@@ -241,6 +258,12 @@ function App() {
               />
             </label>
           </div>
+
+          <PartnersSection
+            partners={partners}
+            onPartnersChange={updatePartners}
+            onNotify={notify}
+          />
 
           <details className="advanced-panel">
             <summary>
