@@ -7,7 +7,7 @@
 .app-header,
 .workspace,
 .app-footer {
-  width: min(1240px, 100%);
+  width: min(1400px, 100%);
   margin: 0 auto;
 }
 
@@ -42,7 +42,7 @@
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 24px;
   align-items: start;
 }
@@ -290,8 +290,10 @@
     #ffffff;
 }
 
+/* 600px content area = the widest a signature can use in Gmail/Outlook. */
 .preview-email {
-  max-width: 640px;
+  width: 658px;
+  max-width: 100%;
   min-height: 420px;
   margin: 0 auto;
   background: #ffffff;
@@ -337,6 +339,13 @@
   margin: 0 10px;
   vertical-align: middle;
   background: #e8e4ef;
+}
+
+.preview-width-note {
+  margin: 0 0 12px;
+  color: #757682;
+  font-size: 0.85rem;
+  text-align: center;
 }
 
 .preview-helper {

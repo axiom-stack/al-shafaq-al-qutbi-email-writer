@@ -10,8 +10,13 @@ const safeAddressLine = (value: string) => escapeHtml(value).replace(/\r?\n/g, '
 const addressFull = (params: BuilderFormValues) =>
   `${escapeHtml(params.addressLine1)} ${escapeHtml(params.addressLine2)}`.trim()
 
-const PARTNER_LOGO_WIDTH = 120
-const PARTNER_LOGO_HEIGHT = 40
+type PartnerLogoSize = { width: number; height: number }
+
+/**
+ * Display size of each partner logo box (images are requested at 2x). Sized so
+ * two tiles fit on one row even in the narrowest template.
+ */
+const PARTNER_LOGO_SIZE: PartnerLogoSize = { width: 160, height: 64 }
 
 const CLOUDINARY_UPLOAD_PATTERN =
   /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(v\d+\/.+?)(\.[a-z0-9]+)?$/i
@@ -21,31 +26,39 @@ const CLOUDINARY_UPLOAD_PATTERN =
  * gives object-fit: contain behaviour in every client and turns SVGs (unsupported
  * by Gmail/Outlook) into PNGs. Other URLs are used as-is.
  */
-const partnerLogoSource = (imageUrl: string) => {
+const partnerLogoSource = (imageUrl: string, size: PartnerLogoSize) => {
   const match = CLOUDINARY_UPLOAD_PATTERN.exec(imageUrl)
   if (!match) {
     return { src: imageUrl, exactSize: false }
   }
 
-  const transform = `c_pad,w_${PARTNER_LOGO_WIDTH * 2},h_${PARTNER_LOGO_HEIGHT * 2},b_transparent`
+  const transform = `c_pad,w_${size.width * 2},h_${size.height * 2},b_transparent,q_auto`
   return { src: `${match[1]}${transform}/${match[2]}.png`, exactSize: true }
 }
 
-const partnerLogoHtml = (partner: Partner, centered: boolean) => {
-  const { src, exactSize } = partnerLogoSource(partner.imageUrl)
+const partnerLogoHtml = (partner: Partner, size: PartnerLogoSize, centered: boolean) => {
+  const { src, exactSize } = partnerLogoSource(partner.imageUrl, size)
   const sizeAttributes = exactSize
-    ? `width="${PARTNER_LOGO_WIDTH}" height="${PARTNER_LOGO_HEIGHT}"`
-    : `height="${PARTNER_LOGO_HEIGHT}"`
+    ? `width="${size.width}" height="${size.height}"`
+    : `height="${size.height}"`
   const sizeStyle = exactSize
-    ? `width:${PARTNER_LOGO_WIDTH}px;height:${PARTNER_LOGO_HEIGHT}px;`
-    : `width:auto;height:${PARTNER_LOGO_HEIGHT}px;max-height:${PARTNER_LOGO_HEIGHT}px;`
+    ? `width:${size.width}px;height:${size.height}px;`
+    : `width:auto;height:${size.height}px;max-height:${size.height}px;`
+  const outerPadding = centered ? '0 4px 8px 4px' : '0 10px 10px 0'
 
-  return `<span style="display:inline-block;vertical-align:middle;padding:${centered ? '0 6px 8px 6px' : '0 12px 8px 0'};"><img src="${escapeHtml(src)}" alt="${escapeHtml(partner.name)}" title="${escapeHtml(partner.name)}" ${sizeAttributes} style="display:inline-block;vertical-align:middle;border:0;outline:none;text-decoration:none;${sizeStyle}max-width:${PARTNER_LOGO_WIDTH}px;" /></span>`
+  return `<span style="display:inline-block;vertical-align:top;padding:${outerPadding};"><span style="display:inline-block;padding:6px;background-color:#ffffff;border:1px solid #e8e4ef;border-radius:8px;"><img src="${escapeHtml(src)}" alt="${escapeHtml(partner.name)}" title="${escapeHtml(partner.name)}" ${sizeAttributes} style="display:block;border:0;outline:none;text-decoration:none;${sizeStyle}max-width:${size.width}px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;line-height:1.3;color:#1a2f7a;" /></span></span>`
 }
+
+/** A thin orange rule; nested in its own table so clients don't stretch it to the text height. */
+const accentRuleHtml = (width: number) => `<table cellpadding="0" cellspacing="0" border="0" width="${width}" role="presentation" style="border-collapse:collapse;width:${width}px;"><tr><td style="height:2px;line-height:2px;font-size:0;background-color:#f47920;">&nbsp;</td></tr></table>`
 
 const partnersSectionHtml = (
   partners: Partner[],
-  { centered = false, divider = true }: { centered?: boolean; divider?: boolean } = {},
+  {
+    centered = false,
+    divider = true,
+    size = PARTNER_LOGO_SIZE,
+  }: { centered?: boolean; divider?: boolean; size?: PartnerLogoSize } = {},
 ) => {
   const visiblePartners = partners.filter(
     (partner) => partner.enabled && partner.name.trim() !== '' && isHttpsUrl(partner.imageUrl),
@@ -60,21 +73,41 @@ const partnersSectionHtml = (
   return `
       <table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;">
         <tr>
-          <td align="${align}" style="${divider ? 'border-top:1px solid #e8e4ef;' : ''}padding:12px 0 0 0;">
+          <td align="${align}" style="${divider ? 'border-top:1px solid #e8e4ef;' : ''}padding:14px 0 0 0;">
             <table${centered ? ' align="center"' : ''} cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
               <tr>
-                <td style="border-bottom:2px solid #f47920;color:#1a2f7a;font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:700;letter-spacing:0.12em;line-height:1.2;padding:0 0 3px 0;text-transform:uppercase;mso-line-height-rule:exactly;">Partners</td>
+                ${centered ? `<td style="vertical-align:middle;padding:0;">${accentRuleHtml(24)}</td>` : ''}
+                <td style="color:#1a2f7a;font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.14em;line-height:1.2;padding:0 ${centered ? '10px' : '10px 0 0'};white-space:nowrap;vertical-align:middle;mso-line-height-rule:exactly;">OUR PARTNERS</td>
+                <td style="vertical-align:middle;padding:0;">${accentRuleHtml(24)}</td>
               </tr>
             </table>
           </td>
         </tr>
         <tr>
-          <td align="${align}" style="text-align:${align};padding:10px 0 0 0;font-size:0;line-height:0;">
-            ${visiblePartners.map((partner) => partnerLogoHtml(partner, centered)).join('')}
+          <td align="${align}" style="text-align:${align};padding:12px 0 0 0;font-size:0;line-height:0;">
+            ${visiblePartners.map((partner) => partnerLogoHtml(partner, size, centered)).join('')}
           </td>
         </tr>
       </table>`
 }
+
+const brandBarHtml = (colspan?: number) => `
+  <tr>
+    <td${colspan ? ` colspan="${colspan}"` : ''} style="padding:16px 0 0 0;font-size:0;line-height:0;">
+      <table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;">
+        <tr>
+          <td width="64" style="width:64px;height:3px;background-color:#f47920;font-size:0;line-height:0;">&nbsp;</td>
+          <td style="height:3px;background-color:#1a2f7a;font-size:0;line-height:0;">&nbsp;</td>
+        </tr>
+      </table>
+    </td>
+  </tr>`
+
+const contactRowHtml = (label: string, valueHtml: string, valueStyle = '') => `
+        <tr>
+          <td width="16" style="width:16px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;line-height:1.65;color:#f47920;vertical-align:top;padding:0 8px 3px 0;mso-line-height-rule:exactly;">${label}</td>
+          <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.65;color:#454651;vertical-align:top;padding:0 0 3px 0;mso-line-height-rule:exactly;${valueStyle}">${valueHtml}</td>
+        </tr>`
 
 export function buildMessagePreviewHtml(body: string): string {
   const blocks = body
@@ -100,7 +133,7 @@ function buildHorizontalSignatureHtml(params: BuilderFormValues, partners: Partn
   const partnersRowHtml = partnersHtml
     ? `
   <tr>
-    <td colspan="3" style="padding:14px 0 0 0;">${partnersHtml}
+    <td colspan="3" style="padding:12px 0 0 0;">${partnersHtml}
     </td>
   </tr>`
     : ''
@@ -112,30 +145,29 @@ function buildHorizontalSignatureHtml(params: BuilderFormValues, partners: Partn
     : ''
 
   const addressHtml = params.showAddress
-    ? `
-        <tr>
-          <td style="font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:1.55;color:#757682;padding:4px 0 0 0;mso-line-height-rule:exactly;">
-            ${safeAddressLine(params.addressLine1)}<br />${safeAddressLine(params.addressLine2)}
-          </td>
-        </tr>`
+    ? contactRowHtml(
+        'A',
+        `${safeAddressLine(params.addressLine1)}<br />${safeAddressLine(params.addressLine2)}`,
+        'font-size:10px;line-height:1.55;color:#757682;',
+      )
     : ''
 
-  return `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-family:Arial,Helvetica,sans-serif;max-width:520px;">
+  return `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-family:Arial,Helvetica,sans-serif;max-width:540px;">
   <tr>
-    <td width="170" align="center" style="padding:0 20px 0 0;vertical-align:middle;">
-      <img src="${escapeHtml(params.logoUrl)}" alt="${escapeHtml(params.logoAlt)}" width="140" height="42" style="display:block;border:0;outline:none;text-decoration:none;width:140px;height:auto;max-width:140px;margin:0 auto;" />
+    <td width="180" align="center" style="width:180px;padding:0 20px 0 0;vertical-align:middle;">
+      <img src="${escapeHtml(params.logoUrl)}" alt="${escapeHtml(params.logoAlt)}" width="160" height="48" style="display:block;border:0;outline:none;text-decoration:none;width:160px;height:auto;max-width:160px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;line-height:1.3;color:#1a2f7a;" />
     </td>
     <td style="width:3px;padding:0;vertical-align:middle;background-color:#f47920;font-size:0;line-height:0;">&nbsp;</td>
-    <td style="padding:0 0 0 20px;vertical-align:middle;">
+    <td style="padding:2px 0 2px 20px;vertical-align:middle;">
       <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
         <tr>
-          <td style="font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;line-height:1.3;color:#1a2f7a;padding:0 0 2px 0;mso-line-height-rule:exactly;">${escapeHtml(params.personName)}</td>
+          <td style="font-family:Arial,Helvetica,sans-serif;font-size:18px;font-weight:700;line-height:1.25;color:#1a2f7a;padding:0 0 3px 0;mso-line-height-rule:exactly;">${escapeHtml(params.personName)}</td>
         </tr>
         <tr>
-          <td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:600;line-height:1.4;color:#454651;padding:0 0 6px 0;mso-line-height-rule:exactly;">${escapeHtml(params.personTitle)}</td>
+          <td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:600;line-height:1.4;color:#454651;padding:0 0 8px 0;mso-line-height-rule:exactly;">${escapeHtml(params.personTitle)}</td>
         </tr>
         <tr>
-          <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;line-height:1.3;color:#1b1b20;padding:0;mso-line-height-rule:exactly;">${escapeHtml(params.companyName)}</td>
+          <td style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.06em;line-height:1.35;color:#757682;padding:0;mso-line-height-rule:exactly;">${escapeHtml(params.companyName.toUpperCase())}</td>
         </tr>
       </table>
     </td>
@@ -149,28 +181,19 @@ function buildHorizontalSignatureHtml(params: BuilderFormValues, partners: Partn
   </tr>
   <tr>
     <td colspan="3" style="padding:12px 0 0 0;">
-      <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
-        <tr>
-          <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.65;color:#454651;padding:0 0 3px 0;mso-line-height-rule:exactly;">
-            <span style="color:#1a2f7a;font-weight:700;">E</span>&nbsp;
-            <a href="mailto:${escapeHtml(params.email)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.email)}</a>
-          </td>
-        </tr>
-        <tr>
-          <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.65;color:#454651;padding:0 0 3px 0;mso-line-height-rule:exactly;">
-            <span style="color:#1a2f7a;font-weight:700;">T</span>&nbsp;
-            <a href="tel:${escapeHtml(params.phone1Tel)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.phone1Display)}</a>${phoneTwoHtml}
-          </td>
-        </tr>
-        <tr>
-          <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.65;color:#454651;padding:0 0 3px 0;mso-line-height-rule:exactly;">
-            <span style="color:#1a2f7a;font-weight:700;">W</span>&nbsp;
-            <a href="${escapeHtml(params.websiteUrl)}" style="color:#f47920;text-decoration:none;font-weight:600;">${escapeHtml(params.websiteLabel)}</a>
-          </td>
-        </tr>${addressHtml}
+      <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">${contactRowHtml(
+        'E',
+        `<a href="mailto:${escapeHtml(params.email)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.email)}</a>`,
+      )}${contactRowHtml(
+        'T',
+        `<a href="tel:${escapeHtml(params.phone1Tel)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.phone1Display)}</a>${phoneTwoHtml}`,
+      )}${contactRowHtml(
+        'W',
+        `<a href="${escapeHtml(params.websiteUrl)}" style="color:#f47920;text-decoration:none;font-weight:700;">${escapeHtml(params.websiteLabel)}</a>`,
+      )}${addressHtml}
       </table>
     </td>
-  </tr>${partnersRowHtml}
+  </tr>${partnersRowHtml}${brandBarHtml(3)}
 </table>`
 }
 
@@ -196,14 +219,14 @@ function buildCardSignatureHtml(params: BuilderFormValues, partners: Partner[]):
                     </tr>`
     : ''
 
-  return `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-family:Arial,Helvetica,sans-serif;max-width:400px;">
+  return `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-family:Arial,Helvetica,sans-serif;max-width:440px;">
   <tr>
     <td style="padding:0;">
       <table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;border:1px solid #e8e4ef;background-color:#ffffff;">
         <tr>
           <td style="background-color:#1a2f7a;padding:0;font-size:0;line-height:0;">
             <table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;">
-              <tr><td style="height:3px;background-color:#f47920;font-size:0;line-height:0;">&nbsp;</td></tr>
+              <tr><td style="height:4px;background-color:#f47920;font-size:0;line-height:0;">&nbsp;</td></tr>
             </table>
           </td>
         </tr>
@@ -212,11 +235,11 @@ function buildCardSignatureHtml(params: BuilderFormValues, partners: Partner[]):
             <table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;">
               <tr>
                 <td align="center" style="padding:0 0 12px 0;">
-                  <img src="${escapeHtml(params.logoUrl)}" alt="${escapeHtml(params.logoAlt)}" width="150" height="45" style="display:block;border:0;outline:none;text-decoration:none;width:150px;height:auto;max-width:150px;margin:0 auto;" />
+                  <img src="${escapeHtml(params.logoUrl)}" alt="${escapeHtml(params.logoAlt)}" width="170" height="51" style="display:block;border:0;outline:none;text-decoration:none;width:170px;height:auto;max-width:170px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;line-height:1.3;color:#1a2f7a;" />
                 </td>
               </tr>
               <tr>
-                <td align="center" style="font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:700;line-height:1.3;color:#1a2f7a;padding:0 0 3px 0;mso-line-height-rule:exactly;">${escapeHtml(params.personName)}</td>
+                <td align="center" style="font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:700;line-height:1.3;color:#1a2f7a;padding:0 0 3px 0;mso-line-height-rule:exactly;">${escapeHtml(params.personName)}</td>
               </tr>
               <tr>
                 <td align="center" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:600;line-height:1.45;color:#454651;padding:0 0 8px 0;mso-line-height-rule:exactly;">${escapeHtml(params.personTitle)}</td>
@@ -229,7 +252,7 @@ function buildCardSignatureHtml(params: BuilderFormValues, partners: Partner[]):
                 </td>
               </tr>
               <tr>
-                <td align="center" style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;line-height:1.3;color:#1b1b20;padding:0 0 12px 0;mso-line-height-rule:exactly;">${escapeHtml(params.companyName)}</td>
+                <td align="center" style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.06em;line-height:1.3;color:#1b1b20;padding:0 0 12px 0;mso-line-height-rule:exactly;">${escapeHtml(params.companyName.toUpperCase())}</td>
               </tr>
             </table>
           </td>
@@ -263,6 +286,9 @@ function buildCardSignatureHtml(params: BuilderFormValues, partners: Partner[]):
               </tr>${partnersRowHtml}
             </table>
           </td>
+        </tr>
+        <tr>
+          <td style="height:4px;background-color:#1a2f7a;font-size:0;line-height:0;">&nbsp;</td>
         </tr>
       </table>
     </td>
@@ -312,8 +338,8 @@ function buildExecutiveSignatureHtml(params: BuilderFormValues, partners: Partne
                 <td style="vertical-align:middle;padding:0 16px 0 0;">
                   <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;background-color:#ffffff;border-radius:6px;">
                     <tr>
-                      <td style="padding:6px 8px;">
-                        <img src="${escapeHtml(params.logoUrl)}" alt="${escapeHtml(params.logoAlt)}" width="120" height="36" style="display:block;border:0;outline:none;text-decoration:none;width:120px;height:auto;max-width:120px;" />
+                      <td style="padding:8px 10px;">
+                        <img src="${escapeHtml(params.logoUrl)}" alt="${escapeHtml(params.logoAlt)}" width="140" height="42" style="display:block;border:0;outline:none;text-decoration:none;width:140px;height:auto;max-width:140px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;line-height:1.3;color:#1a2f7a;" />
                       </td>
                     </tr>
                   </table>
@@ -321,7 +347,7 @@ function buildExecutiveSignatureHtml(params: BuilderFormValues, partners: Partne
                 <td style="vertical-align:middle;">
                   <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
                     <tr>
-                      <td style="font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;line-height:1.25;color:#ffffff;padding:0 0 2px 0;mso-line-height-rule:exactly;">${escapeHtml(params.personName)}</td>
+                      <td style="font-family:Arial,Helvetica,sans-serif;font-size:18px;font-weight:700;line-height:1.25;color:#ffffff;padding:0 0 3px 0;mso-line-height-rule:exactly;">${escapeHtml(params.personName)}</td>
                     </tr>
                     <tr>
                       <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:600;line-height:1.4;color:#c8d0e8;padding:0;mso-line-height-rule:exactly;">${escapeHtml(params.personTitle)}</td>
@@ -348,7 +374,7 @@ function buildExecutiveSignatureHtml(params: BuilderFormValues, partners: Partne
                 <td width="50%" style="vertical-align:top;padding:0 12px 0 0;">
                   <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
                     <tr>
-                      <td style="font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#1a2f7a;padding:0 0 6px 0;">Contact</td>
+                      <td style="font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:700;letter-spacing:0.12em;color:#1a2f7a;padding:0 0 6px 0;">CONTACT</td>
                     </tr>
                     <tr>
                       <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.55;color:#454651;padding:0 0 4px 0;">
@@ -365,7 +391,7 @@ function buildExecutiveSignatureHtml(params: BuilderFormValues, partners: Partne
                 <td width="50%" style="vertical-align:top;padding:0;">
                   <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
                     <tr>
-                      <td style="font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#1a2f7a;padding:0 0 6px 0;">Web &amp; Office</td>
+                      <td style="font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:700;letter-spacing:0.12em;color:#1a2f7a;padding:0 0 6px 0;">WEB &amp; OFFICE</td>
                     </tr>
                     <tr>
                       <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.55;padding:0 0 8px 0;">
@@ -378,11 +404,25 @@ function buildExecutiveSignatureHtml(params: BuilderFormValues, partners: Partne
             </table>
           </td>
         </tr>${partnersRowHtml}
+        <tr>
+          <td style="height:4px;background-color:#f47920;font-size:0;line-height:0;">&nbsp;</td>
+        </tr>
       </table>
     </td>
   </tr>
 </table>`
 }
+
+/**
+ * Drops the source indentation so the copied HTML stays well under Gmail's
+ * 10,000-character signature limit. Only whitespace between tags is removed;
+ * whitespace inside text is collapsed to a single space, so rendering is unchanged.
+ */
+const minifyHtml = (html: string) =>
+  html
+    .replace(/>\s+</g, '><')
+    .replace(/\s*\n\s*/g, ' ')
+    .trim()
 
 export function buildSignatureHtml(
   templateId: TemplateId,
@@ -391,11 +431,11 @@ export function buildSignatureHtml(
 ): string {
   switch (templateId) {
     case 'card':
-      return buildCardSignatureHtml(params, partners)
+      return minifyHtml(buildCardSignatureHtml(params, partners))
     case 'executive':
-      return buildExecutiveSignatureHtml(params, partners)
+      return minifyHtml(buildExecutiveSignatureHtml(params, partners))
     case 'horizontal':
     default:
-      return buildHorizontalSignatureHtml(params, partners)
+      return minifyHtml(buildHorizontalSignatureHtml(params, partners))
   }
 }

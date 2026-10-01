@@ -409,6 +409,10 @@ function App() {
             </div>
           </div>
 
+          <p className="preview-width-note">
+            Shown at 600px, the maximum signature width in Gmail and Outlook.
+          </p>
+
           <div className="preview-frame">
             <div className="preview-email">
               <div className="message-preview">
