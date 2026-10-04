@@ -46,44 +46,84 @@ const fitInBox = (natural: ImageSize, box: ImageSize): ImageSize => {
   }
 }
 
+/** Horizontal gap between logos and vertical gap between logo rows. */
+const PARTNER_LOGO_GAP = 20
+
 /**
  * Logos get explicit width/height once their size is known (Outlook ignores CSS
  * sizing); until then they fall back to the box height with auto width.
  */
-const partnerLogoHtml = (partner: Partner, logoDimensions: LogoDimensions, centered: boolean) => {
-  const src = partnerLogoSrc(partner.imageUrl)
-  const natural = logoDimensions[src]
+const partnerLogoImgHtml = (partner: Partner, src: string, size: ImageSize | null) => {
   const box = PARTNER_LOGO_BOX
-  const size = natural ? fitInBox(natural, box) : null
   const sizeAttributes = size ? `width="${size.width}" height="${size.height}"` : `height="${box.height}"`
   const sizeStyle = size
     ? `width:${size.width}px;height:${size.height}px;`
     : `width:auto;height:${box.height}px;max-width:${box.width}px;`
-  const outerPadding = centered ? '0 10px 12px 10px' : '0 20px 12px 0'
 
-  return `<span style="display:inline-block;vertical-align:middle;padding:${outerPadding};"><img src="${escapeHtml(src)}" alt="${escapeHtml(partner.name)}" title="${escapeHtml(partner.name)}" ${sizeAttributes} style="display:block;border:0;outline:none;text-decoration:none;${sizeStyle}font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;line-height:1.3;color:#1a2f7a;" /></span>`
+  return `<img src="${escapeHtml(src)}" alt="${escapeHtml(partner.name)}" title="${escapeHtml(partner.name)}" ${sizeAttributes} style="display:block;border:0;outline:none;text-decoration:none;${sizeStyle}font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;line-height:1.3;color:#1a2f7a;" />`
 }
 
+/**
+ * Logos are laid out as real table rows (one cell per logo), wrapped by width
+ * up front. Inline-block logos inside a font-size:0/line-height:0 cell get
+ * clipped and shifted by Outlook desktop's Word renderer.
+ */
 const partnersSectionHtml = (
   partners: Partner[],
   logoDimensions: LogoDimensions,
-  { centered = false, divider = true }: { centered?: boolean; divider?: boolean } = {},
+  {
+    centered = false,
+    divider = true,
+    rowWidth,
+  }: { centered?: boolean; divider?: boolean; rowWidth: number },
 ) => {
-  const visiblePartners = partners.filter(
-    (partner) => partner.enabled && partner.name.trim() !== '' && isHttpsUrl(partner.imageUrl),
-  )
+  const logos = partners
+    .filter((partner) => partner.enabled && partner.name.trim() !== '' && isHttpsUrl(partner.imageUrl))
+    .map((partner) => {
+      const src = partnerLogoSrc(partner.imageUrl)
+      const natural = logoDimensions[src]
+      const size = natural ? fitInBox(natural, PARTNER_LOGO_BOX) : null
+      return { html: partnerLogoImgHtml(partner, src, size), width: size?.width ?? PARTNER_LOGO_BOX.width }
+    })
 
-  if (visiblePartners.length === 0) {
+  if (logos.length === 0) {
     return ''
   }
 
+  const rows: (typeof logos)[] = []
+  let rowUsed = 0
+  for (const logo of logos) {
+    const current = rows.at(-1)
+    const needed = logo.width + (current && current.length > 0 ? PARTNER_LOGO_GAP : 0)
+    if (current && rowUsed + needed <= rowWidth) {
+      current.push(logo)
+      rowUsed += needed
+    } else {
+      rows.push([logo])
+      rowUsed = logo.width
+    }
+  }
+
   const align = centered ? 'center' : 'left'
+  const rowsHtml = rows
+    .map(
+      (row, rowIndex) => `
+            <table${centered ? ' align="center"' : ''} cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;${centered ? 'margin:0 auto;' : ''}">
+              <tr>${row
+                .map(
+                  (logo, index) => `
+                <td valign="middle" style="vertical-align:middle;padding:${rowIndex > 0 ? PARTNER_LOGO_GAP / 2 : 0}px ${index < row.length - 1 ? PARTNER_LOGO_GAP : 0}px 0 0;">${logo.html}</td>`,
+                )
+                .join('')}
+              </tr>
+            </table>`,
+    )
+    .join('')
 
   return `
       <table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;">
         <tr>
-          <td align="${align}" style="text-align:${align};${divider ? 'border-top:1px solid #e8e4ef;' : ''}padding:14px 0 0 0;font-size:0;line-height:0;">
-            ${visiblePartners.map((partner) => partnerLogoHtml(partner, logoDimensions, centered)).join('')}
+          <td align="${align}" style="text-align:${align};${divider ? 'border-top:1px solid #e8e4ef;' : ''}padding:14px 0 0 0;">${rowsHtml}
           </td>
         </tr>
       </table>`
@@ -114,8 +154,8 @@ const CONTACT_ICON_SIZE = 22
 /** One grid cell: icon on the left, its first text line centred against it (line-height = icon size). */
 const contactCellHtml = (icon: keyof typeof CONTACT_ICONS, valueHtml: string, valueStyle = '') => `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
             <tr>
-              <td width="${CONTACT_ICON_SIZE}" style="width:${CONTACT_ICON_SIZE}px;vertical-align:top;padding:0 8px 0 0;"><img src="${CONTACT_ICONS[icon].src}" alt="${CONTACT_ICONS[icon].alt}" width="${CONTACT_ICON_SIZE}" height="${CONTACT_ICON_SIZE}" style="display:block;border:0;outline:none;text-decoration:none;width:${CONTACT_ICON_SIZE}px;height:${CONTACT_ICON_SIZE}px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;line-height:${CONTACT_ICON_SIZE}px;color:#f47920;text-align:center;" /></td>
-              <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:${CONTACT_ICON_SIZE}px;color:#454651;vertical-align:top;padding:0;mso-line-height-rule:exactly;${valueStyle}">${valueHtml}</td>
+              <td width="${CONTACT_ICON_SIZE}" valign="top" style="width:${CONTACT_ICON_SIZE}px;vertical-align:top;padding:0 8px 0 0;"><img src="${CONTACT_ICONS[icon].src}" alt="${CONTACT_ICONS[icon].alt}" width="${CONTACT_ICON_SIZE}" height="${CONTACT_ICON_SIZE}" style="display:block;border:0;outline:none;text-decoration:none;width:${CONTACT_ICON_SIZE}px;height:${CONTACT_ICON_SIZE}px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;line-height:${CONTACT_ICON_SIZE}px;color:#f47920;text-align:center;" /></td>
+              <td valign="top" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:${CONTACT_ICON_SIZE}px;color:#454651;vertical-align:top;padding:0;mso-line-height-rule:exactly;${valueStyle}">${valueHtml}</td>
             </tr>
           </table>`
 
@@ -139,18 +179,18 @@ const contactGridHtml = (params: BuilderFormValues) => {
 
   return `<table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;">
         <tr>
-          <td width="50%" style="${leftCell}">${contactCellHtml(
+          <td width="50%" valign="top" style="${leftCell}">${contactCellHtml(
             'website',
             `<a href="${escapeHtml(params.websiteUrl)}" style="color:#f47920;text-decoration:none;font-weight:700;">${escapeHtml(params.websiteLabel)}</a>`,
           )}</td>
-          <td width="50%" style="${rightCell}">${contactCellHtml(
+          <td width="50%" valign="top" style="${rightCell}">${contactCellHtml(
             'email',
             `<a href="mailto:${escapeHtml(params.email)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.email)}</a>`,
           )}</td>
         </tr>
         <tr>
-          <td width="50%" style="${leftCell}">${addressHtml}</td>
-          <td width="50%" style="${rightCell}">${contactCellHtml('phone', phonesHtml)}</td>
+          <td width="50%" valign="top" style="${leftCell}">${addressHtml}</td>
+          <td width="50%" valign="top" style="${rightCell}">${contactCellHtml('phone', phonesHtml)}</td>
         </tr>
       </table>`
 }
@@ -179,7 +219,7 @@ function buildHorizontalSignatureHtml(
   partners: Partner[],
   logoDimensions: LogoDimensions,
 ): string {
-  const partnersHtml = partnersSectionHtml(partners, logoDimensions)
+  const partnersHtml = partnersSectionHtml(partners, logoDimensions, { rowWidth: 540 })
   const partnersRowHtml = partnersHtml
     ? `
   <tr>
@@ -228,7 +268,7 @@ function buildCardSignatureHtml(
   partners: Partner[],
   logoDimensions: LogoDimensions,
 ): string {
-  const partnersHtml = partnersSectionHtml(partners, logoDimensions, { centered: true })
+  const partnersHtml = partnersSectionHtml(partners, logoDimensions, { centered: true, rowWidth: 400 })
   const partnersRowHtml = partnersHtml
     ? `
               <tr>
@@ -300,7 +340,7 @@ function buildExecutiveSignatureHtml(
   partners: Partner[],
   logoDimensions: LogoDimensions,
 ): string {
-  const partnersHtml = partnersSectionHtml(partners, logoDimensions, { divider: false })
+  const partnersHtml = partnersSectionHtml(partners, logoDimensions, { divider: false, rowWidth: 480 })
   const partnersRowHtml = partnersHtml
     ? `
         <tr>
