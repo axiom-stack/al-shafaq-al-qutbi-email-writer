@@ -15,9 +15,10 @@ export type LogoDimensions = Record<string, ImageSize>
 /**
  * Bounding box for a partner logo. Each logo is scaled to fit inside it at its
  * own aspect ratio, so every logo gets the same visual weight without empty
- * padding around square ones. Two wide logos still fit on one row everywhere.
+ * padding around square ones. Two wide logos fit on one row in the horizontal and
+ * executive templates; the narrower card template stacks them.
  */
-const PARTNER_LOGO_BOX: ImageSize = { width: 180, height: 80 }
+const PARTNER_LOGO_BOX: ImageSize = { width: 220, height: 110 }
 
 const CLOUDINARY_UPLOAD_PATTERN =
   /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(v\d+\/.+?)(\.[a-z0-9]+)?$/i
