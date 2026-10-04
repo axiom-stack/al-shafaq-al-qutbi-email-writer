@@ -7,16 +7,13 @@ const messageParagraphStyle =
 
 const safeAddressLine = (value: string) => escapeHtml(value).replace(/\r?\n/g, '<br />')
 
-const addressFull = (params: BuilderFormValues) =>
-  `${escapeHtml(params.addressLine1)} ${escapeHtml(params.addressLine2)}`.trim()
-
 type PartnerLogoSize = { width: number; height: number }
 
 /**
- * Display size of each partner logo box (images are requested at 2x). Sized so
- * two tiles fit on one row even in the narrowest template.
+ * Display size of every partner logo box (images are requested at 2x). Sized so
+ * two logos fit on one row even in the narrowest template.
  */
-const PARTNER_LOGO_SIZE: PartnerLogoSize = { width: 160, height: 64 }
+const PARTNER_LOGO_SIZE: PartnerLogoSize = { width: 180, height: 80 }
 
 const CLOUDINARY_UPLOAD_PATTERN =
   /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(v\d+\/.+?)(\.[a-z0-9]+)?$/i
@@ -36,21 +33,20 @@ const partnerLogoSource = (imageUrl: string, size: PartnerLogoSize) => {
   return { src: `${match[1]}${transform}/${match[2]}.png`, exactSize: true }
 }
 
+/**
+ * Every logo sits in a fixed-size box so all partners take up the same space;
+ * non-Cloudinary images are scaled down to fit and centred inside it.
+ */
 const partnerLogoHtml = (partner: Partner, size: PartnerLogoSize, centered: boolean) => {
   const { src, exactSize } = partnerLogoSource(partner.imageUrl, size)
-  const sizeAttributes = exactSize
-    ? `width="${size.width}" height="${size.height}"`
-    : `height="${size.height}"`
+  const sizeAttributes = exactSize ? `width="${size.width}" height="${size.height}"` : ''
   const sizeStyle = exactSize
     ? `width:${size.width}px;height:${size.height}px;`
-    : `width:auto;height:${size.height}px;max-height:${size.height}px;`
+    : 'width:auto;height:auto;'
   const outerPadding = centered ? '0 4px 8px 4px' : '0 10px 10px 0'
 
-  return `<span style="display:inline-block;vertical-align:top;padding:${outerPadding};"><span style="display:inline-block;padding:6px;background-color:#ffffff;border:1px solid #e8e4ef;border-radius:8px;"><img src="${escapeHtml(src)}" alt="${escapeHtml(partner.name)}" title="${escapeHtml(partner.name)}" ${sizeAttributes} style="display:block;border:0;outline:none;text-decoration:none;${sizeStyle}max-width:${size.width}px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;line-height:1.3;color:#1a2f7a;" /></span></span>`
+  return `<span style="display:inline-block;vertical-align:top;width:${size.width}px;height:${size.height}px;line-height:${size.height}px;text-align:center;padding:${outerPadding};"><img src="${escapeHtml(src)}" alt="${escapeHtml(partner.name)}" title="${escapeHtml(partner.name)}" ${sizeAttributes} style="display:inline-block;vertical-align:middle;border:0;outline:none;text-decoration:none;${sizeStyle}max-width:${size.width}px;max-height:${size.height}px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;line-height:1.3;color:#1a2f7a;" /></span>`
 }
-
-/** A thin orange rule; nested in its own table so clients don't stretch it to the text height. */
-const accentRuleHtml = (width: number) => `<table cellpadding="0" cellspacing="0" border="0" width="${width}" role="presentation" style="border-collapse:collapse;width:${width}px;"><tr><td style="height:2px;line-height:2px;font-size:0;background-color:#f47920;">&nbsp;</td></tr></table>`
 
 const partnersSectionHtml = (
   partners: Partner[],
@@ -73,18 +69,7 @@ const partnersSectionHtml = (
   return `
       <table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;">
         <tr>
-          <td align="${align}" style="${divider ? 'border-top:1px solid #e8e4ef;' : ''}padding:14px 0 0 0;">
-            <table${centered ? ' align="center"' : ''} cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
-              <tr>
-                ${centered ? `<td style="vertical-align:middle;padding:0;">${accentRuleHtml(24)}</td>` : ''}
-                <td style="color:#1a2f7a;font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.14em;line-height:1.2;padding:0 ${centered ? '10px' : '10px 0 0'};white-space:nowrap;vertical-align:middle;mso-line-height-rule:exactly;">OUR PARTNERS</td>
-                <td style="vertical-align:middle;padding:0;">${accentRuleHtml(24)}</td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-        <tr>
-          <td align="${align}" style="text-align:${align};padding:12px 0 0 0;font-size:0;line-height:0;">
+          <td align="${align}" style="text-align:${align};${divider ? 'border-top:1px solid #e8e4ef;' : ''}padding:14px 0 0 0;font-size:0;line-height:0;">
             ${visiblePartners.map((partner) => partnerLogoHtml(partner, size, centered)).join('')}
           </td>
         </tr>
@@ -103,11 +88,47 @@ const brandBarHtml = (colspan?: number) => `
     </td>
   </tr>`
 
-const contactRowHtml = (label: string, valueHtml: string, valueStyle = '') => `
+const contactCellHtml = (label: string, valueHtml: string, valueStyle = '') => `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
+            <tr>
+              <td width="16" style="width:16px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;line-height:1.65;color:#f47920;vertical-align:top;padding:0 8px 0 0;mso-line-height-rule:exactly;">${label}</td>
+              <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.65;color:#454651;vertical-align:top;padding:0;mso-line-height-rule:exactly;${valueStyle}">${valueHtml}</td>
+            </tr>
+          </table>`
+
+/** 2x2 contact grid: website and address on the left, email and phone numbers on the right. */
+const contactGridHtml = (params: BuilderFormValues, emailLabel: string) => {
+  const phonesHtml = `<a href="tel:${escapeHtml(params.phone1Tel)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.phone1Display)}</a>${
+    params.showPhone2
+      ? `<br /><a href="tel:${escapeHtml(params.phone2Tel)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.phone2Display)}</a>`
+      : ''
+  }`
+  const addressHtml = params.showAddress
+    ? contactCellHtml(
+        'A',
+        `${safeAddressLine(params.addressLine1)}<br />${safeAddressLine(params.addressLine2)}`,
+        'font-size:10px;line-height:1.55;color:#757682;',
+      )
+    : ''
+  const leftCell = 'width:50%;vertical-align:top;padding:0 16px 8px 0;'
+  const rightCell = 'width:50%;vertical-align:top;padding:0 0 8px 0;'
+
+  return `<table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;">
         <tr>
-          <td width="16" style="width:16px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;line-height:1.65;color:#f47920;vertical-align:top;padding:0 8px 3px 0;mso-line-height-rule:exactly;">${label}</td>
-          <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.65;color:#454651;vertical-align:top;padding:0 0 3px 0;mso-line-height-rule:exactly;${valueStyle}">${valueHtml}</td>
-        </tr>`
+          <td width="50%" style="${leftCell}">${contactCellHtml(
+            'W',
+            `<a href="${escapeHtml(params.websiteUrl)}" style="color:#f47920;text-decoration:none;font-weight:700;">${escapeHtml(params.websiteLabel)}</a>`,
+          )}</td>
+          <td width="50%" style="${rightCell}">${contactCellHtml(
+            emailLabel,
+            `<a href="mailto:${escapeHtml(params.email)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.email)}</a>`,
+          )}</td>
+        </tr>
+        <tr>
+          <td width="50%" style="${leftCell}">${addressHtml}</td>
+          <td width="50%" style="${rightCell}">${contactCellHtml('T', phonesHtml)}</td>
+        </tr>
+      </table>`
+}
 
 export function buildMessagePreviewHtml(body: string): string {
   const blocks = body
@@ -136,20 +157,6 @@ function buildHorizontalSignatureHtml(params: BuilderFormValues, partners: Partn
     <td colspan="3" style="padding:12px 0 0 0;">${partnersHtml}
     </td>
   </tr>`
-    : ''
-
-  const phoneTwoHtml = params.showPhone2
-    ? `
-            <span style="color:#c5c5d3;">&nbsp;/&nbsp;</span>
-            <a href="tel:${escapeHtml(params.phone2Tel)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.phone2Display)}</a>`
-    : ''
-
-  const addressHtml = params.showAddress
-    ? contactRowHtml(
-        'A',
-        `${safeAddressLine(params.addressLine1)}<br />${safeAddressLine(params.addressLine2)}`,
-        'font-size:10px;line-height:1.55;color:#757682;',
-      )
     : ''
 
   return `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-family:Arial,Helvetica,sans-serif;max-width:540px;">
@@ -181,17 +188,7 @@ function buildHorizontalSignatureHtml(params: BuilderFormValues, partners: Partn
   </tr>
   <tr>
     <td colspan="3" style="padding:12px 0 0 0;">
-      <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">${contactRowHtml(
-        'E',
-        `<a href="mailto:${escapeHtml(params.email)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.email)}</a>`,
-      )}${contactRowHtml(
-        'T',
-        `<a href="tel:${escapeHtml(params.phone1Tel)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.phone1Display)}</a>${phoneTwoHtml}`,
-      )}${contactRowHtml(
-        'W',
-        `<a href="${escapeHtml(params.websiteUrl)}" style="color:#f47920;text-decoration:none;font-weight:700;">${escapeHtml(params.websiteLabel)}</a>`,
-      )}${addressHtml}
-      </table>
+      ${contactGridHtml(params, 'E')}
     </td>
   </tr>${partnersRowHtml}${brandBarHtml(3)}
 </table>`
@@ -205,18 +202,6 @@ function buildCardSignatureHtml(params: BuilderFormValues, partners: Partner[]):
                 <td style="padding:14px 0 0 0;">${partnersHtml}
                 </td>
               </tr>`
-    : ''
-
-  const phoneTwoHtml = params.showPhone2
-    ? `<span style="color:#c5c5d3;"> / </span><a href="tel:${escapeHtml(params.phone2Tel)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.phone2Display)}</a>`
-    : ''
-
-  const addressHtml = params.showAddress
-    ? `
-                    <tr>
-                      <td width="18" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;color:#f47920;vertical-align:top;padding:0 6px 0 0;">A</td>
-                      <td style="font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:1.5;color:#757682;vertical-align:top;">${addressFull(params)}</td>
-                    </tr>`
     : ''
 
   return `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-family:Arial,Helvetica,sans-serif;max-width:440px;">
@@ -262,26 +247,7 @@ function buildCardSignatureHtml(params: BuilderFormValues, partners: Partner[]):
             <table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;">
               <tr>
                 <td style="border-top:1px solid #ebe8f3;padding:12px 0 0 0;">
-                  <table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;">
-                    <tr>
-                      <td width="18" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;color:#f47920;vertical-align:top;padding:0 6px 6px 0;">@</td>
-                      <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.5;color:#454651;padding:0 0 6px 0;vertical-align:top;">
-                        <a href="mailto:${escapeHtml(params.email)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.email)}</a>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td width="18" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;color:#f47920;vertical-align:top;padding:0 6px 6px 0;">T</td>
-                      <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.5;color:#454651;padding:0 0 6px 0;vertical-align:top;">
-                        <a href="tel:${escapeHtml(params.phone1Tel)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.phone1Display)}</a>${phoneTwoHtml}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td width="18" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;color:#f47920;vertical-align:top;padding:0 6px 6px 0;">W</td>
-                      <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.5;color:#454651;padding:0 0 6px 0;vertical-align:top;">
-                        <a href="${escapeHtml(params.websiteUrl)}" style="color:#f47920;text-decoration:none;font-weight:600;">${escapeHtml(params.websiteLabel)}</a>
-                      </td>
-                    </tr>${addressHtml}
-                  </table>
+                  ${contactGridHtml(params, '@')}
                 </td>
               </tr>${partnersRowHtml}
             </table>
@@ -374,6 +340,18 @@ function buildExecutiveSignatureHtml(params: BuilderFormValues, partners: Partne
                 <td width="50%" style="vertical-align:top;padding:0 12px 0 0;">
                   <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
                     <tr>
+                      <td style="font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:700;letter-spacing:0.12em;color:#1a2f7a;padding:0 0 6px 0;">WEB &amp; OFFICE</td>
+                    </tr>
+                    <tr>
+                      <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.55;padding:0 0 8px 0;">
+                        <a href="${escapeHtml(params.websiteUrl)}" style="color:#f47920;text-decoration:none;font-weight:700;">${escapeHtml(params.websiteLabel)}</a>
+                      </td>
+                    </tr>${addressHtml}
+                  </table>
+                </td>
+                <td width="50%" style="vertical-align:top;padding:0;">
+                  <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
+                    <tr>
                       <td style="font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:700;letter-spacing:0.12em;color:#1a2f7a;padding:0 0 6px 0;">CONTACT</td>
                     </tr>
                     <tr>
@@ -386,18 +364,6 @@ function buildExecutiveSignatureHtml(params: BuilderFormValues, partners: Partne
                         <a href="tel:${escapeHtml(params.phone1Tel)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.phone1Display)}</a>
                       </td>
                     </tr>${phoneTwoHtml}
-                  </table>
-                </td>
-                <td width="50%" style="vertical-align:top;padding:0;">
-                  <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
-                    <tr>
-                      <td style="font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:700;letter-spacing:0.12em;color:#1a2f7a;padding:0 0 6px 0;">WEB &amp; OFFICE</td>
-                    </tr>
-                    <tr>
-                      <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.55;padding:0 0 8px 0;">
-                        <a href="${escapeHtml(params.websiteUrl)}" style="color:#f47920;text-decoration:none;font-weight:700;">${escapeHtml(params.websiteLabel)}</a>
-                      </td>
-                    </tr>${addressHtml}
                   </table>
                 </td>
               </tr>
