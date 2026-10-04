@@ -7,54 +7,66 @@ const messageParagraphStyle =
 
 const safeAddressLine = (value: string) => escapeHtml(value).replace(/\r?\n/g, '<br />')
 
-type PartnerLogoSize = { width: number; height: number }
+type ImageSize = { width: number; height: number }
+
+/** Natural pixel size of each logo image, keyed by its email src (see partnerLogoSrc). */
+export type LogoDimensions = Record<string, ImageSize>
 
 /**
- * Display size of every partner logo box (images are requested at 2x). Sized so
- * two logos fit on one row even in the narrowest template.
+ * Bounding box for a partner logo. Each logo is scaled to fit inside it at its
+ * own aspect ratio, so every logo gets the same visual weight without empty
+ * padding around square ones. Two wide logos still fit on one row everywhere.
  */
-const PARTNER_LOGO_SIZE: PartnerLogoSize = { width: 180, height: 80 }
+const PARTNER_LOGO_BOX: ImageSize = { width: 180, height: 80 }
 
 const CLOUDINARY_UPLOAD_PATTERN =
   /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(v\d+\/.+?)(\.[a-z0-9]+)?$/i
 
 /**
- * Cloudinary uploads are delivered pre-padded to an exact 2x box as PNG, which
- * gives object-fit: contain behaviour in every client and turns SVGs (unsupported
- * by Gmail/Outlook) into PNGs. Other URLs are used as-is.
+ * The URL a partner logo is embedded with. Cloudinary uploads are trimmed of
+ * blank margins, fitted to the 2x box and delivered as PNG (SVG isn't supported
+ * by Gmail/Outlook). Other URLs are used as-is.
  */
-const partnerLogoSource = (imageUrl: string, size: PartnerLogoSize) => {
+export const partnerLogoSrc = (imageUrl: string) => {
   const match = CLOUDINARY_UPLOAD_PATTERN.exec(imageUrl)
   if (!match) {
-    return { src: imageUrl, exactSize: false }
+    return imageUrl
   }
 
-  const transform = `c_pad,w_${size.width * 2},h_${size.height * 2},b_transparent,q_auto`
-  return { src: `${match[1]}${transform}/${match[2]}.png`, exactSize: true }
+  const fit = `c_fit,w_${PARTNER_LOGO_BOX.width * 2},h_${PARTNER_LOGO_BOX.height * 2},q_auto`
+  return `${match[1]}e_trim/${fit}/${match[2]}.png`
+}
+
+const fitInBox = (natural: ImageSize, box: ImageSize): ImageSize => {
+  const scale = Math.min(box.width / natural.width, box.height / natural.height)
+  return {
+    width: Math.max(1, Math.round(natural.width * scale)),
+    height: Math.max(1, Math.round(natural.height * scale)),
+  }
 }
 
 /**
- * Every logo sits in a fixed-size box so all partners take up the same space;
- * non-Cloudinary images are scaled down to fit and centred inside it.
+ * Logos get explicit width/height once their size is known (Outlook ignores CSS
+ * sizing); until then they fall back to the box height with auto width.
  */
-const partnerLogoHtml = (partner: Partner, size: PartnerLogoSize, centered: boolean) => {
-  const { src, exactSize } = partnerLogoSource(partner.imageUrl, size)
-  const sizeAttributes = exactSize ? `width="${size.width}" height="${size.height}"` : ''
-  const sizeStyle = exactSize
+const partnerLogoHtml = (partner: Partner, logoDimensions: LogoDimensions, centered: boolean) => {
+  const src = partnerLogoSrc(partner.imageUrl)
+  const natural = logoDimensions[src]
+  const box = PARTNER_LOGO_BOX
+  const size = natural ? fitInBox(natural, box) : null
+  const sizeAttributes = size ? `width="${size.width}" height="${size.height}"` : `height="${box.height}"`
+  const sizeStyle = size
     ? `width:${size.width}px;height:${size.height}px;`
-    : 'width:auto;height:auto;'
-  const outerPadding = centered ? '0 4px 8px 4px' : '0 10px 10px 0'
+    : `width:auto;height:${box.height}px;max-width:${box.width}px;`
+  const outerPadding = centered ? '0 10px 12px 10px' : '0 20px 12px 0'
 
-  return `<span style="display:inline-block;vertical-align:top;width:${size.width}px;height:${size.height}px;line-height:${size.height}px;text-align:center;padding:${outerPadding};"><img src="${escapeHtml(src)}" alt="${escapeHtml(partner.name)}" title="${escapeHtml(partner.name)}" ${sizeAttributes} style="display:inline-block;vertical-align:middle;border:0;outline:none;text-decoration:none;${sizeStyle}max-width:${size.width}px;max-height:${size.height}px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;line-height:1.3;color:#1a2f7a;" /></span>`
+  return `<span style="display:inline-block;vertical-align:middle;padding:${outerPadding};"><img src="${escapeHtml(src)}" alt="${escapeHtml(partner.name)}" title="${escapeHtml(partner.name)}" ${sizeAttributes} style="display:block;border:0;outline:none;text-decoration:none;${sizeStyle}font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;line-height:1.3;color:#1a2f7a;" /></span>`
 }
 
 const partnersSectionHtml = (
   partners: Partner[],
-  {
-    centered = false,
-    divider = true,
-    size = PARTNER_LOGO_SIZE,
-  }: { centered?: boolean; divider?: boolean; size?: PartnerLogoSize } = {},
+  logoDimensions: LogoDimensions,
+  { centered = false, divider = true }: { centered?: boolean; divider?: boolean } = {},
 ) => {
   const visiblePartners = partners.filter(
     (partner) => partner.enabled && partner.name.trim() !== '' && isHttpsUrl(partner.imageUrl),
@@ -70,7 +82,7 @@ const partnersSectionHtml = (
       <table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;">
         <tr>
           <td align="${align}" style="text-align:${align};${divider ? 'border-top:1px solid #e8e4ef;' : ''}padding:14px 0 0 0;font-size:0;line-height:0;">
-            ${visiblePartners.map((partner) => partnerLogoHtml(partner, size, centered)).join('')}
+            ${visiblePartners.map((partner) => partnerLogoHtml(partner, logoDimensions, centered)).join('')}
           </td>
         </tr>
       </table>`
@@ -161,8 +173,12 @@ export function buildMessagePreviewHtml(body: string): string {
     .join('')
 }
 
-function buildHorizontalSignatureHtml(params: BuilderFormValues, partners: Partner[]): string {
-  const partnersHtml = partnersSectionHtml(partners)
+function buildHorizontalSignatureHtml(
+  params: BuilderFormValues,
+  partners: Partner[],
+  logoDimensions: LogoDimensions,
+): string {
+  const partnersHtml = partnersSectionHtml(partners, logoDimensions)
   const partnersRowHtml = partnersHtml
     ? `
   <tr>
@@ -206,8 +222,12 @@ function buildHorizontalSignatureHtml(params: BuilderFormValues, partners: Partn
 </table>`
 }
 
-function buildCardSignatureHtml(params: BuilderFormValues, partners: Partner[]): string {
-  const partnersHtml = partnersSectionHtml(partners, { centered: true })
+function buildCardSignatureHtml(
+  params: BuilderFormValues,
+  partners: Partner[],
+  logoDimensions: LogoDimensions,
+): string {
+  const partnersHtml = partnersSectionHtml(partners, logoDimensions, { centered: true })
   const partnersRowHtml = partnersHtml
     ? `
               <tr>
@@ -274,8 +294,12 @@ function buildCardSignatureHtml(params: BuilderFormValues, partners: Partner[]):
 </table>`
 }
 
-function buildExecutiveSignatureHtml(params: BuilderFormValues, partners: Partner[]): string {
-  const partnersHtml = partnersSectionHtml(partners, { divider: false })
+function buildExecutiveSignatureHtml(
+  params: BuilderFormValues,
+  partners: Partner[],
+  logoDimensions: LogoDimensions,
+): string {
+  const partnersHtml = partnersSectionHtml(partners, logoDimensions, { divider: false })
   const partnersRowHtml = partnersHtml
     ? `
         <tr>
@@ -406,14 +430,15 @@ export function buildSignatureHtml(
   templateId: TemplateId,
   params: BuilderFormValues,
   partners: Partner[] = [],
+  logoDimensions: LogoDimensions = {},
 ): string {
   switch (templateId) {
     case 'card':
-      return minifyHtml(buildCardSignatureHtml(params, partners))
+      return minifyHtml(buildCardSignatureHtml(params, partners, logoDimensions))
     case 'executive':
-      return minifyHtml(buildExecutiveSignatureHtml(params, partners))
+      return minifyHtml(buildExecutiveSignatureHtml(params, partners, logoDimensions))
     case 'horizontal':
     default:
-      return minifyHtml(buildHorizontalSignatureHtml(params, partners))
+      return minifyHtml(buildHorizontalSignatureHtml(params, partners, logoDimensions))
   }
 }

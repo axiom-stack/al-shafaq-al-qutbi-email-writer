@@ -10,8 +10,10 @@ import {
 import {
   buildMessagePreviewHtml,
   buildSignatureHtml,
+  partnerLogoSrc,
 } from './lib/signature-template'
 import { type Partner, loadPartners, savePartners } from './lib/partners'
+import { useImageDimensions } from './lib/use-image-dimensions'
 
 type ToastState = {
   tone: 'success' | 'error'
@@ -94,9 +96,13 @@ function App() {
   const [toast, setToast] = useState<ToastState>(null)
   const [partners, setPartners] = useState<Partner[]>(loadPartners)
 
+  const logoDimensions = useImageDimensions(
+    partners.filter((partner) => partner.enabled).map((partner) => partnerLogoSrc(partner.imageUrl)),
+  )
+
   const signatureHtml = useMemo(
-    () => buildSignatureHtml(formValues.templateId, formValues, partners),
-    [formValues, partners],
+    () => buildSignatureHtml(formValues.templateId, formValues, partners, logoDimensions),
+    [formValues, partners, logoDimensions],
   )
   const messagePreviewHtml = useMemo(
     () => buildMessagePreviewHtml(formValues.emailBody),
