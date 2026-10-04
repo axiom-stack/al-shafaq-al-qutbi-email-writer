@@ -109,7 +109,7 @@ const CONTACT_ICONS = {
   phone: { src: 'https://res.cloudinary.com/dmppnpaab/image/upload/v1791123800/m4yc9rpoiwog2ob1uplw.png', alt: 'T' },
 } as const
 
-const CONTACT_ICON_SIZE = 18
+const CONTACT_ICON_SIZE = 22
 
 /** One grid cell: icon on the left, its first text line centred against it (line-height = icon size). */
 const contactCellHtml = (icon: keyof typeof CONTACT_ICONS, valueHtml: string, valueStyle = '') => `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
@@ -131,7 +131,7 @@ const contactGridHtml = (params: BuilderFormValues) => {
     ? contactCellHtml(
         'address',
         `${safeAddressLine(params.addressLine1)}<br />${safeAddressLine(params.addressLine2)}`,
-        'font-size:10px;line-height:15px;color:#757682;padding-top:1px;',
+        'font-size:10px;line-height:15px;color:#757682;padding-top:3px;',
       )
     : ''
   const leftCell = 'width:50%;vertical-align:top;padding:0 16px 10px 0;'
