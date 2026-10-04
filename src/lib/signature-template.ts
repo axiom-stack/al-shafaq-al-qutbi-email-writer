@@ -49,24 +49,16 @@ const fitInBox = (natural: ImageSize, box: ImageSize): ImageSize => {
 /** Horizontal gap between logos and vertical gap between logo rows. */
 const PARTNER_LOGO_GAP = 20
 
-/**
- * Logos get explicit width/height once their size is known (Outlook ignores CSS
- * sizing); until then they fall back to the box height with auto width.
- */
-const partnerLogoImgHtml = (partner: Partner, src: string, size: ImageSize | null) => {
-  const box = PARTNER_LOGO_BOX
-  const sizeAttributes = size ? `width="${size.width}" height="${size.height}"` : `height="${box.height}"`
-  const sizeStyle = size
-    ? `width:${size.width}px;height:${size.height}px;`
-    : `width:auto;height:${box.height}px;max-width:${box.width}px;`
-
-  return `<img src="${escapeHtml(src)}" alt="${escapeHtml(partner.name)}" title="${escapeHtml(partner.name)}" ${sizeAttributes} style="display:block;border:0;outline:none;text-decoration:none;${sizeStyle}font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;line-height:1.3;color:#1a2f7a;" />`
-}
+/** Always explicit width/height attributes: Outlook ignores CSS sizing and would use the 2x pixel size. */
+const partnerLogoImgHtml = (partner: Partner, src: string, size: ImageSize) =>
+  `<img src="${escapeHtml(src)}" alt="${escapeHtml(partner.name)}" title="${escapeHtml(partner.name)}" width="${size.width}" height="${size.height}" style="display:block;border:0;outline:none;text-decoration:none;width:${size.width}px;height:${size.height}px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;line-height:1.3;color:#1a2f7a;" />`
 
 /**
  * Logos are laid out as real table rows (one cell per logo), wrapped by width
  * up front. Inline-block logos inside a font-size:0/line-height:0 cell get
- * clipped and shifted by Outlook desktop's Word renderer.
+ * clipped and shifted by Outlook desktop's Word renderer. Logos whose size
+ * hasn't been measured yet (or that failed to load) are left out, so every
+ * logo in the copied HTML has exact dimensions.
  */
 const partnersSectionHtml = (
   partners: Partner[],
@@ -79,11 +71,14 @@ const partnersSectionHtml = (
 ) => {
   const logos = partners
     .filter((partner) => partner.enabled && partner.name.trim() !== '' && isHttpsUrl(partner.imageUrl))
-    .map((partner) => {
+    .flatMap((partner) => {
       const src = partnerLogoSrc(partner.imageUrl)
       const natural = logoDimensions[src]
-      const size = natural ? fitInBox(natural, PARTNER_LOGO_BOX) : null
-      return { html: partnerLogoImgHtml(partner, src, size), width: size?.width ?? PARTNER_LOGO_BOX.width }
+      if (!natural) {
+        return []
+      }
+      const size = fitInBox(natural, PARTNER_LOGO_BOX)
+      return [{ html: partnerLogoImgHtml(partner, src, size), width: size.width }]
     })
 
   if (logos.length === 0) {

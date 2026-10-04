@@ -96,7 +96,7 @@ function App() {
   const [toast, setToast] = useState<ToastState>(null)
   const [partners, setPartners] = useState<Partner[]>(loadPartners)
 
-  const logoDimensions = useImageDimensions(
+  const { dimensions: logoDimensions, pendingCount: pendingLogoCount } = useImageDimensions(
     partners.filter((partner) => partner.enabled).map((partner) => partnerLogoSrc(partner.imageUrl)),
   )
 
@@ -409,8 +409,13 @@ function App() {
               <h2>Message + signature context</h2>
             </div>
             <div className="button-row">
-              <button type="button" className="brand-button" onClick={handleCopy}>
-                Copy signature HTML
+              <button
+                type="button"
+                className="brand-button"
+                onClick={handleCopy}
+                disabled={pendingLogoCount > 0}
+              >
+                {pendingLogoCount > 0 ? 'Loading partner logos…' : 'Copy signature HTML'}
               </button>
             </div>
           </div>
