@@ -139,7 +139,7 @@ function PartnerRow({
         ) : (
           <>
             <div className="partner-heading">
-              <strong>{partner.name}</strong>
+              <strong title={partner.name}>{partner.name}</strong>
               <span className={`partner-badge${partner.enabled ? ' partner-badge-on' : ''}`}>
                 {partner.enabled ? 'In signature' : 'Hidden'}
               </span>
