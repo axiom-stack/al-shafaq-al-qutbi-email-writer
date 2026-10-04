@@ -88,44 +88,56 @@ const brandBarHtml = (colspan?: number) => `
     </td>
   </tr>`
 
-const contactCellHtml = (label: string, valueHtml: string, valueStyle = '') => `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
+/** Orange badge icons (PNG, 2x) hosted on Cloudinary; SVG isn't supported by Gmail/Outlook. */
+const CONTACT_ICONS = {
+  website: { src: 'https://res.cloudinary.com/dmppnpaab/image/upload/v1791123797/mylc3and8n2afskwv8qa.png', alt: 'W' },
+  address: { src: 'https://res.cloudinary.com/dmppnpaab/image/upload/v1791123798/vvyvndlerpncc6sncf3j.png', alt: 'A' },
+  email: { src: 'https://res.cloudinary.com/dmppnpaab/image/upload/v1791123799/owfl2zgevotjqo5di4rd.png', alt: 'E' },
+  phone: { src: 'https://res.cloudinary.com/dmppnpaab/image/upload/v1791123800/m4yc9rpoiwog2ob1uplw.png', alt: 'T' },
+} as const
+
+const CONTACT_ICON_SIZE = 18
+
+/** One grid cell: icon on the left, its first text line centred against it (line-height = icon size). */
+const contactCellHtml = (icon: keyof typeof CONTACT_ICONS, valueHtml: string, valueStyle = '') => `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
             <tr>
-              <td width="16" style="width:16px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;line-height:1.65;color:#f47920;vertical-align:top;padding:0 8px 0 0;mso-line-height-rule:exactly;">${label}</td>
-              <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.65;color:#454651;vertical-align:top;padding:0;mso-line-height-rule:exactly;${valueStyle}">${valueHtml}</td>
+              <td width="${CONTACT_ICON_SIZE}" style="width:${CONTACT_ICON_SIZE}px;vertical-align:top;padding:0 8px 0 0;"><img src="${CONTACT_ICONS[icon].src}" alt="${CONTACT_ICONS[icon].alt}" width="${CONTACT_ICON_SIZE}" height="${CONTACT_ICON_SIZE}" style="display:block;border:0;outline:none;text-decoration:none;width:${CONTACT_ICON_SIZE}px;height:${CONTACT_ICON_SIZE}px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;line-height:${CONTACT_ICON_SIZE}px;color:#f47920;text-align:center;" /></td>
+              <td style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:${CONTACT_ICON_SIZE}px;color:#454651;vertical-align:top;padding:0;mso-line-height-rule:exactly;${valueStyle}">${valueHtml}</td>
             </tr>
           </table>`
 
+const phoneLinkHtml = (tel: string, display: string) =>
+  `<a href="tel:${escapeHtml(tel)}" style="color:#1a2f7a;text-decoration:none;font-weight:600;letter-spacing:0.02em;white-space:nowrap;">${escapeHtml(display)}</a>`
+
 /** 2x2 contact grid: website and address on the left, email and phone numbers on the right. */
-const contactGridHtml = (params: BuilderFormValues, emailLabel: string) => {
-  const phonesHtml = `<a href="tel:${escapeHtml(params.phone1Tel)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.phone1Display)}</a>${
-    params.showPhone2
-      ? `<br /><a href="tel:${escapeHtml(params.phone2Tel)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.phone2Display)}</a>`
-      : ''
+const contactGridHtml = (params: BuilderFormValues) => {
+  const phonesHtml = `${phoneLinkHtml(params.phone1Tel, params.phone1Display)}${
+    params.showPhone2 ? `<br />${phoneLinkHtml(params.phone2Tel, params.phone2Display)}` : ''
   }`
   const addressHtml = params.showAddress
     ? contactCellHtml(
-        'A',
+        'address',
         `${safeAddressLine(params.addressLine1)}<br />${safeAddressLine(params.addressLine2)}`,
-        'font-size:10px;line-height:1.55;color:#757682;',
+        'font-size:10px;line-height:15px;color:#757682;padding-top:1px;',
       )
     : ''
-  const leftCell = 'width:50%;vertical-align:top;padding:0 16px 8px 0;'
-  const rightCell = 'width:50%;vertical-align:top;padding:0 0 8px 0;'
+  const leftCell = 'width:50%;vertical-align:top;padding:0 16px 10px 0;'
+  const rightCell = 'width:50%;vertical-align:top;padding:0 0 10px 0;'
 
   return `<table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;">
         <tr>
           <td width="50%" style="${leftCell}">${contactCellHtml(
-            'W',
+            'website',
             `<a href="${escapeHtml(params.websiteUrl)}" style="color:#f47920;text-decoration:none;font-weight:700;">${escapeHtml(params.websiteLabel)}</a>`,
           )}</td>
           <td width="50%" style="${rightCell}">${contactCellHtml(
-            emailLabel,
+            'email',
             `<a href="mailto:${escapeHtml(params.email)}" style="color:#1e3da8;text-decoration:none;">${escapeHtml(params.email)}</a>`,
           )}</td>
         </tr>
         <tr>
           <td width="50%" style="${leftCell}">${addressHtml}</td>
-          <td width="50%" style="${rightCell}">${contactCellHtml('T', phonesHtml)}</td>
+          <td width="50%" style="${rightCell}">${contactCellHtml('phone', phonesHtml)}</td>
         </tr>
       </table>`
 }
@@ -188,7 +200,7 @@ function buildHorizontalSignatureHtml(params: BuilderFormValues, partners: Partn
   </tr>
   <tr>
     <td colspan="3" style="padding:12px 0 0 0;">
-      ${contactGridHtml(params, 'E')}
+      ${contactGridHtml(params)}
     </td>
   </tr>${partnersRowHtml}${brandBarHtml(3)}
 </table>`
@@ -247,7 +259,7 @@ function buildCardSignatureHtml(params: BuilderFormValues, partners: Partner[]):
             <table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;">
               <tr>
                 <td style="border-top:1px solid #ebe8f3;padding:12px 0 0 0;">
-                  ${contactGridHtml(params, '@')}
+                  ${contactGridHtml(params)}
                 </td>
               </tr>${partnersRowHtml}
             </table>
