@@ -15,8 +15,8 @@ export type LogoDimensions = Record<string, ImageSize>
 /**
  * Bounding box for a partner logo. Each logo is scaled to fit inside it at its
  * own aspect ratio, so every logo gets the same visual weight without empty
- * padding around square ones. Two wide logos fit on one row in the horizontal and
- * executive templates; the narrower card template stacks them.
+ * padding around square ones. If the logos together are wider than the
+ * template, they are all shrunk further to stay on one row.
  */
 const PARTNER_LOGO_BOX: ImageSize = { width: 220, height: 110 }
 
@@ -46,7 +46,7 @@ const fitInBox = (natural: ImageSize, box: ImageSize): ImageSize => {
   }
 }
 
-/** Horizontal gap between logos and vertical gap between logo rows. */
+/** Horizontal gap between logos. */
 const PARTNER_LOGO_GAP = 20
 
 /** Always explicit width/height attributes: Outlook ignores CSS sizing and would use the 2x pixel size. */
@@ -54,11 +54,11 @@ const partnerLogoImgHtml = (partner: Partner, src: string, size: ImageSize) =>
   `<img src="${escapeHtml(src)}" alt="${escapeHtml(partner.name)}" title="${escapeHtml(partner.name)}" width="${size.width}" height="${size.height}" style="display:block;border:0;outline:none;text-decoration:none;width:${size.width}px;height:${size.height}px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;line-height:1.3;color:#1a2f7a;" />`
 
 /**
- * Logos are laid out as real table rows (one cell per logo), wrapped by width
- * up front. Inline-block logos inside a font-size:0/line-height:0 cell get
- * clipped and shifted by Outlook desktop's Word renderer. Logos whose size
- * hasn't been measured yet (or that failed to load) are left out, so every
- * logo in the copied HTML has exact dimensions.
+ * Logos are laid out as a real table row (one cell per logo), sized up front.
+ * Inline-block logos inside a font-size:0/line-height:0 cell get clipped and
+ * shifted by Outlook desktop's Word renderer. Logos whose size hasn't been
+ * measured yet (or that failed to load) are left out, so every logo in the
+ * copied HTML has exact dimensions.
  */
 const partnersSectionHtml = (
   partners: Partner[],
@@ -74,51 +74,40 @@ const partnersSectionHtml = (
     .flatMap((partner) => {
       const src = partnerLogoSrc(partner.imageUrl)
       const natural = logoDimensions[src]
-      if (!natural) {
-        return []
-      }
-      const size = fitInBox(natural, PARTNER_LOGO_BOX)
-      return [{ html: partnerLogoImgHtml(partner, src, size), width: size.width }]
+      return natural ? [{ partner, src, size: fitInBox(natural, PARTNER_LOGO_BOX) }] : []
     })
 
   if (logos.length === 0) {
     return ''
   }
 
-  const rows: (typeof logos)[] = []
-  let rowUsed = 0
-  for (const logo of logos) {
-    const current = rows.at(-1)
-    const needed = logo.width + (current && current.length > 0 ? PARTNER_LOGO_GAP : 0)
-    if (current && rowUsed + needed <= rowWidth) {
-      current.push(logo)
-      rowUsed += needed
-    } else {
-      rows.push([logo])
-      rowUsed = logo.width
-    }
-  }
+  const availableWidth = rowWidth - PARTNER_LOGO_GAP * (logos.length - 1)
+  const totalWidth = logos.reduce((sum, logo) => sum + logo.size.width, 0)
+  const rowScale = Math.min(1, availableWidth / totalWidth)
+
+  const cellsHtml = logos
+    .map(({ partner, src, size }, index) => {
+      // Rounded down so the row can never end up wider than the template.
+      const scaled = {
+        width: Math.max(1, Math.floor(size.width * rowScale)),
+        height: Math.max(1, Math.floor(size.height * rowScale)),
+      }
+      return `
+                <td valign="middle" style="vertical-align:middle;padding:0 ${index < logos.length - 1 ? PARTNER_LOGO_GAP : 0}px 0 0;">${partnerLogoImgHtml(partner, src, scaled)}</td>`
+    })
+    .join('')
 
   const align = centered ? 'center' : 'left'
-  const rowsHtml = rows
-    .map(
-      (row, rowIndex) => `
+  const rowHtml = `
             <table${centered ? ' align="center"' : ''} cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;${centered ? 'margin:0 auto;' : ''}">
-              <tr>${row
-                .map(
-                  (logo, index) => `
-                <td valign="middle" style="vertical-align:middle;padding:${rowIndex > 0 ? PARTNER_LOGO_GAP / 2 : 0}px ${index < row.length - 1 ? PARTNER_LOGO_GAP : 0}px 0 0;">${logo.html}</td>`,
-                )
-                .join('')}
+              <tr>${cellsHtml}
               </tr>
-            </table>`,
-    )
-    .join('')
+            </table>`
 
   return `
       <table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation" style="border-collapse:collapse;">
         <tr>
-          <td align="${align}" style="text-align:${align};${divider ? 'border-top:1px solid #e8e4ef;' : ''}padding:14px 0 0 0;">${rowsHtml}
+          <td align="${align}" style="text-align:${align};${divider ? 'border-top:1px solid #e8e4ef;' : ''}padding:14px 0 0 0;">${rowHtml}
           </td>
         </tr>
       </table>`
